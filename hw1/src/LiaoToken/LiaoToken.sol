@@ -14,9 +14,9 @@ interface IERC20 {
 }
 
 contract LiaoToken is IERC20 {
-    // TODO: you might need to declare several state variable here
-    mapping(address account => uint256) private _balances;
-    mapping(address account => bool) isClaim;
+    mapping(address => uint256) private _balances;
+    mapping(address => mapping(address => uint256)) private _allowances;
+    mapping(address => bool) private _isContract;
 
     uint256 private _totalSupply;
 
@@ -42,35 +42,54 @@ contract LiaoToken is IERC20 {
         return _symbol;
     }
 
-    function totalSupply() external view returns (uint256) {
+    function totalSupply() external view override returns (uint256) {
         return _totalSupply;
     }
 
-    function balanceOf(address account) external view returns (uint256) {
+    function balanceOf(address account) external view override returns (uint256) {
         return _balances[account];
     }
 
     function claim() external returns (bool) {
-        if (isClaim[msg.sender]) revert();
+        if (_isContract[msg.sender]) revert();
         _balances[msg.sender] += 1 ether;
         _totalSupply += 1 ether;
         emit Claim(msg.sender, 1 ether);
         return true;
     }
 
-    function transfer(address to, uint256 amount) external returns (bool) {
-        // TODO: please add your implementaiton here
+    function transfer(address to, uint256 amount) external override returns (bool) {
+        require(amount <= _balances[msg.sender], "Insufficient balance");
+        _balances[msg.sender] -= amount;
+        _balances[to] += amount;
+        emit Transfer(msg.sender, to, amount);
+        return true;
     }
 
-    function transferFrom(address from, address to, uint256 value) external returns (bool) {
-        // TODO: please add your implementaiton here
+    function transferFrom(address from, address to, uint256 value) external override returns (bool) {
+        uint256 allowedAmount = _allowances[from][msg.sender];
+        require(value <= allowedAmount, "Transfer amount exceeds allowance");
+        _allowances[from][msg.sender] -= value;
+        _transfer(from, to, value);
+        return true;
     }
 
-    function approve(address spender, uint256 amount) external returns (bool) {
-        // TODO: please add your implementaiton here
+    function approve(address spender, uint256 amount) external override returns (bool) {
+        _allowances[msg.sender][spender] = amount;
+        emit Approval(msg.sender, spender, amount);
+        return true;
     }
 
-    function allowance(address owner, address spender) public view returns (uint256) {
-        // TODO: please add your implementaiton here
+    function allowance(address owner, address spender) public view override returns (uint256) {
+        return _allowances[owner][spender];
+    }
+
+    function _transfer(address sender, address recipient, uint256 amount) internal {
+        require(sender != address(0), "Transfer from the zero address");
+        require(recipient != address(0), "Transfer to the zero address");
+
+        _balances[sender] -= amount;
+        _balances[recipient] += amount;
+        emit Transfer(sender, recipient, amount);
     }
 }
